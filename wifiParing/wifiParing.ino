@@ -10,6 +10,15 @@ String receivedData = "";
 String ssid = "";
 String password = "";
 bool wifiConnected = false;
+//example varables you could import from a JSON file
+//float temperature = 0.0;
+//float humidity = 0.0;
+
+void setup() {
+  Serial.begin(115200);
+  SerialBT.begin("ESP32_BT"); // Set the Bluetooth device name
+  Serial.println("Bluetooth device started, waiting for connections...");
+}
 
 // Function to connect to a WiFi network using provided SSID and password
 bool connectToWiFi(String ssid, String password) {
@@ -25,44 +34,50 @@ bool connectToWiFi(String ssid, String password) {
   return true;
 }
 
-// Function to handle the received data from the Bluetooth connection
-void handleReceivedData(String receivedData) {
-  // Parse the received data as JSON
-  StaticJsonDocument<256> jsonDoc;
+bool parseJsonData(String receivedData, StaticJsonDocument<256> &jsonDoc) {
   DeserializationError error = deserializeJson(jsonDoc, receivedData);
-
-  // If parsing is successful, extract SSID and password
-  if (!error) {
-    ssid = jsonDoc["ssid"].as<String>();
-    password = jsonDoc["password"].as<String>();
-
-    // Connect to the WiFi network if SSID and password are present
-    if (ssid != "" && password != "") {
-      Serial.print("Connecting to WiFi network: ");
-      Serial.print(ssid);
-      Serial.print(", Password: ");
-      Serial.println(password);
-      wifiConnected = connectToWiFi(ssid, password);
-
-      // Perform actions upon successful WiFi connection
-      if (wifiConnected) {
-        Serial.println("WiFi Connected");
-        // Print the local IP address to the Serial Monitor
-        Serial.print("Local IP address: ");
-        Serial.println(WiFi.localIP());
-      } else {
-        Serial.println("WiFi Connection Failed");
-      }
-    }
-  } else {
+  if (error) {
     Serial.println("Failed to parse JSON");
+    return false;
   }
+  return true;
 }
 
-void setup() {
-  Serial.begin(115200);
-  SerialBT.begin("ESP32_BT"); // Set the Bluetooth device name
-  Serial.println("Bluetooth device started, waiting for connections...");
+// Function to extract data from the JSON document
+void extractDataFromJson(StaticJsonDocument<256> &jsonDoc) {
+  ssid = jsonDoc["ssid"].as<String>();
+  password = jsonDoc["password"].as<String>();
+  //how to import from a JSON file
+  //temperature = jsonDoc["temperature"].as<float>();
+  //humidity = jsonDoc["humidity"].as<float>();
+}
+
+// Function to print the received JSON data
+void printJsonData(StaticJsonDocument<256> &jsonDoc) {
+  Serial.println("Received JSON data:");
+  serializeJsonPretty(jsonDoc, Serial);
+  Serial.println();
+}
+
+// Function to handle WiFi connections
+void handleWiFiConnection() {
+  if (ssid != "" && password != "") {
+    Serial.print("Connecting to WiFi network: ");
+    Serial.print(ssid);
+    Serial.print(", Password: ");
+    Serial.println(password);
+    wifiConnected = connectToWiFi(ssid, password);
+
+    // Perform actions upon successful WiFi connection
+    if (wifiConnected) {
+      Serial.println("WiFi Connected");
+      // Print the local IP address to the Serial Monitor
+      Serial.print("Local IP address: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println("WiFi Connection Failed");
+    }
+  }
 }
 
 void loop() {
@@ -71,8 +86,18 @@ void loop() {
     receivedData = SerialBT.readStringUntil('\n');
     receivedData.trim();
 
-    // Handle the received data
-    handleReceivedData(receivedData);
+    // Parse the received data as JSON
+    StaticJsonDocument<256> jsonDoc;
+    if (parseJsonData(receivedData, jsonDoc)) {
+      // Extract data from JSON
+      extractDataFromJson(jsonDoc);
+      
+      // Print the received JSON data
+      printJsonData(jsonDoc);
+      
+      // Handle the WiFi connection
+      handleWiFiConnection();
+    }
 
     // Clear the received data for the next iteration
     receivedData = "";
