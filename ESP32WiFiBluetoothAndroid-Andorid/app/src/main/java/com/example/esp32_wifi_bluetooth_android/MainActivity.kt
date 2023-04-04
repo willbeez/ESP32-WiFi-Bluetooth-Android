@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
+import org.json.JSONObject
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -73,8 +74,13 @@ class MainActivity : AppCompatActivity() {
             val ssid = editTextSSID.text.toString()
             val password = editTextPassword.text.toString()
 
-            // Format the message to be sent to the Bluetooth device
-            val message = "<$ssid,$password>"
+            // Create a JSON object with the SSID and password
+            val json = JSONObject()
+            json.put("ssid", ssid)
+            json.put("password", password)
+
+            // Convert the JSON object to a string
+            val message = json.toString()
 
             // Connect to the device and send the message
             selectedDevice?.let { device ->
