@@ -11,6 +11,8 @@ This repository contains an ESP32-based device and a Flask server for collecting
 5. [Running the Project](#running-the-project)
 
 ## ESP32 Device Code
+![image](https://user-images.githubusercontent.com/3200244/230788400-8ed501d1-22ee-4a8f-b222-f12297f3404a.png)
+
 
 The `esp32_device.ino` file contains the Arduino code for the ESP32 microcontroller. This code reads temperature and humidity data from a DHT11 sensor, receives Wi-Fi credentials via Bluetooth, and sends the data to the Flask server via HTTP.
 
@@ -32,6 +34,8 @@ The following libraries are required to compile the code:
 The code assumes that a DHT11 sensor is connected to the D4 pin of the ESP32.
 
 ## Flask Server Code
+![image](https://user-images.githubusercontent.com/3200244/230788442-429ffe64-38c8-48e1-a749-e5069353735f.png)
+
 
 The `server.py` file contains the Flask server code that receives incoming sensor data via an API, stores it in an SQLite database, and serves a simple dashboard for viewing the data.
 
@@ -43,6 +47,7 @@ You'll need to install the following Python packages:
 - Flask-SQLAlchemy
 
 ## Dashboard
+![image](https://user-images.githubusercontent.com/3200244/230788041-8fd81d92-7451-424e-8cb3-62ed89a7b858.png)
 
 The `index.html` file is a simple HTML dashboard for viewing the sensor data. It fetches the data from the Flask server and displays it in a table.
 
