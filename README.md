@@ -37,7 +37,7 @@ The code assumes that a DHT11 sensor is connected to the D4 pin of the ESP32.
 ![image](https://user-images.githubusercontent.com/3200244/230788442-429ffe64-38c8-48e1-a749-e5069353735f.png)
 
 
-The `server.py` file contains the Flask server code that receives incoming sensor data via an API, stores it in an SQLite database, and serves a simple dashboard for viewing the data.
+The `app.py` file contains the Flask server code that receives incoming sensor data via an API, stores it in an SQLite database, and serves a simple dashboard for viewing the data.
 
 ### Dependencies
 
