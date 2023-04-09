@@ -1,6 +1,6 @@
 # Sensor Data Dashboard
 
-This repository contains an ESP32-based device and a Flask server for collecting temperature and humidity data from a DHT11 sensor, receiving Wi-Fi credentials via Bluetooth, and sending the data to a server via HTTP. The server stores the data in an SQLite database and provides a simple web-based dashboard for visualization.
+This repository contains an ESP32-based device and a Flask server for collecting data agnostically from sensors, such as temperature and humidity data from a DHT11 sensor. The system receives Wi-Fi credentials via Bluetooth and sends the data to a server via HTTP. The server stores the data in an SQLite database and provides a simple web-based dashboard for visualization. The design allows for the easy addition and integration of other types of sensor data.
 
 ## Contents
 
