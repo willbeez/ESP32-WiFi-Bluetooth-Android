@@ -90,8 +90,8 @@ Note: Make sure to replace the `serverUrl` variable in the `esp32_device.ino
 
 ## Project Structure
 
-- `esp32_device.ino`: ESP32 Arduino code for reading sensor data, connecting to Wi-Fi, and sending data to the server.
-- `server.py`: Flask server code for handling incoming data, storing it in an SQLite database, and serving the dashboard.
+- `single-node.ino`: ESP32 Arduino code for reading sensor data, connecting to Wi-Fi, and sending data to the server.
+- `app.py`: Flask server code for handling incoming data, storing it in an SQLite database, and serving the dashboard.
 - `index.html`: HTML file for the dashboard, displaying sensor data in a table format.
 - `sensor_data.db`: SQLite database file that stores the sensor data (created automatically when the Flask server runs).
 
