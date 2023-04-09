@@ -14,7 +14,7 @@ This repository contains an ESP32-based device and a Flask server for collecting
 ![image](https://user-images.githubusercontent.com/3200244/230788400-8ed501d1-22ee-4a8f-b222-f12297f3404a.png)
 
 
-The `esp32_device.ino` file contains the Arduino code for the ESP32 microcontroller. This code reads temperature and humidity data from a DHT11 sensor, receives Wi-Fi credentials via Bluetooth, and sends the data to the Flask server via HTTP.
+The `single-node.ino` file contains the Arduino code for the ESP32 microcontroller. This code reads temperature and humidity data from a DHT11 sensor, receives Wi-Fi credentials via Bluetooth, and sends the data to the Flask server via HTTP.
 
 ### Libraries
 
