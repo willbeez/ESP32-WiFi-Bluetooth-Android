@@ -1,64 +1,101 @@
-# ESP32 Wi-Fi and Bluetooth Sensor Data Collection
+# Sensor Data Dashboard
 
-This project consists of an ESP32 microcontroller that collects sensor data and sends it to a Flask server over Wi-Fi or Bluetooth. The server stores the data in a SQLite database and provides an API for accessing the data. An Android app is included to connect to the ESP32 over Bluetooth and send Wi-Fi credentials to the device.
+This repository contains an ESP32-based device and a Flask server for collecting temperature and humidity data from a DHT11 sensor, receiving Wi-Fi credentials via Bluetooth, and sending the data to a server via HTTP. The server stores the data in an SQLite database and provides a simple web-based dashboard for visualization.
 
-## Components
+## Contents
 
-- ESP32 development board
-- DHT11 temperature and humidity sensor
-- MQ-2 gas sensor
-- Breadboard and jumper wires
-- Android smartphone with Bluetooth support
+1. [ESP32 Device Code](#esp32-device-code)
+2. [Flask Server Code](#flask-server-code)
+3. [Dashboard](#dashboard)
+4. [Installation](#installation)
+5. [Running the Project](#running-the-project)
 
-## Setting up the ESP32
+## ESP32 Device Code
 
-1. Install the ESP32 board in the Arduino IDE using the instructions found [here](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/).
-2. Install the DHT sensor library by navigating to **Sketch > Include Library > Manage Libraries...** in the Arduino IDE and searching for "DHT sensor library" by Adafruit.
-3. Install the PubSubClient library by navigating to **Sketch > Include Library > Manage Libraries...** in the Arduino IDE and searching for "PubSubClient" by Nick O'Leary.
-4. Upload the `esp32-wifi-bluetooth.ino` sketch to the ESP32 board.
+The `esp32_device.ino` file contains the Arduino code for the ESP32 microcontroller. This code reads temperature and humidity data from a DHT11 sensor, receives Wi-Fi credentials via Bluetooth, and sends the data to the Flask server via HTTP.
 
-## Setting up the Flask Server
+### Libraries
 
-1. Install the required packages by running `pip install -r requirements.txt`.
-2. Run `python app.py` to start the server.
+The following libraries are required to compile the code:
 
-## Using the Android App
+- WiFi.h
+- HTTPClient.h
+- BluetoothSerial.h
+- ArduinoJson.h
+- time.h
+- ctime
+- iomanip
+- DHT.h
 
-1. Pair your Android smartphone with the ESP32 over Bluetooth.
-2. Open the app and select the ESP32 from the list of available devices.
-3. Enter your Wi-Fi credentials in the provided fields.
-4. Press the "Submit" button to send the credentials to the ESP32.
+### Hardware
 
-## API Endpoints
+The code assumes that a DHT11 sensor is connected to the D4 pin of the ESP32.
 
-### GET /api/sensor_data
+## Flask Server Code
 
-Returns an array of all sensor data in the database, ordered by timestamp in descending order.
+The `server.py` file contains the Flask server code that receives incoming sensor data via an API, stores it in an SQLite database, and serves a simple dashboard for viewing the data.
 
-### POST /api/sensor_data
+### Dependencies
 
-Accepts JSON data in the following format:
+You'll need to install the following Python packages:
 
-{
-  "device_id": "12345",
-  "timestamp": "2022-04-08T12:34:56.789Z",
-  "data": [
-  {
-    "key": "temperature",
-    "value": 25.5
-  },
-  {
-    "key": "humidity",
-    "value": 50.0
-  },
-  {
-    "key": "gas",
-    "value": 150
-  }]
-}
+- Flask
+- Flask-SQLAlchemy
 
-Returns a success message if the data was added to the database, or an error message if an error occurred.
+## Dashboard
+
+The `index.html` file is a simple HTML dashboard for viewing the sensor data. It fetches the data from the Flask server and displays it in a table.
+
+### Dependencies
+
+The dashboard uses the Tabulator library for rendering the table. The library is loaded from a CDN.
+
+## Installation
+
+1. Install [Python 3](https://www.python.org/downloads/) and [pip](https://pip.pypa.io/en/stable/installing/) if you haven't already.
+2. Install the required Python packages by running:
+  pip install Flask Flask-SQLAlchemy
+
+3. Install [Arduino IDE](https://www.arduino.cc/en/software) and [configure it for ESP32](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/).
+
+4. Install the required Arduino libraries using the Arduino IDE's Library Manager:
+
+- [DHT Sensor Library](https://github.com/adafruit/DHT-sensor-library)
+- [ArduinoJson](https://arduinojson.org/)
+
+## Running the Project
+
+1. Upload the `esp32_device.ino` sketch to your ESP32 using the Arduino IDE.
+
+2. Run the Flask server by executing the following command in the terminal or command prompt:
+  python3 server.py
+
+The server will start on `http://0.0.0.0:5000/`.
+
+3. Open a web browser and navigate to `http://localhost:5000/` to view the dashboard.
+
+4. Connect to the ESP32 via Bluetooth using a Bluetooth serial terminal app on your smartphone or computer. Send the Wi-Fi credentials as a JSON string in the following format:
+  { "ssid": "your_wifi_ssid", "password": "your_wifi_password" }
+
+The ESP32 will connect to the Wi-Fi network and start sending sensor data to the Flask server every 10 seconds.
+
+5. The dashboard will update with the new sensor data. Refresh the page to see the latest data.
+
+Note: Make sure to replace the `serverUrl` variable in the `esp32_device.ino
+
+## Project Structure
+
+- `esp32_device.ino`: ESP32 Arduino code for reading sensor data, connecting to Wi-Fi, and sending data to the server.
+- `server.py`: Flask server code for handling incoming data, storing it in an SQLite database, and serving the dashboard.
+- `index.html`: HTML file for the dashboard, displaying sensor data in a table format.
+- `sensor_data.db`: SQLite database file that stores the sensor data (created automatically when the Flask server runs).
+
+## Troubleshooting
+
+1. If the ESP32 cannot connect to the Wi-Fi network, ensure that the provided credentials are correct and that the ESP32 is within range of the Wi-Fi network.
+2. If the ESP32 cannot send data to the Flask server, ensure that the server is running, and the IP address and port in the `esp32_device.ino` file are correct.
+3. If the dashboard is not displaying any data, ensure that the Flask server is running and that the ESP32 is sending data correctly.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE.md](LICENSE.md) file for details.
+This project is provided under the GNU General Public License v3.0 (GPL-3.0). See the [LICENSE](LICENSE) file for more information.
