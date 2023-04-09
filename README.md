@@ -70,7 +70,7 @@ The dashboard uses the Tabulator library for rendering the table. The library is
 
 ## Running the Project
 
-1. Upload the `esp32_device.ino` sketch to your ESP32 using the Arduino IDE.
+1. Upload the `single-node.ino` sketch to your ESP32 using the Arduino IDE.
 
 2. Run the Flask server by executing the following command in the terminal or command prompt:
   python3 server.py
