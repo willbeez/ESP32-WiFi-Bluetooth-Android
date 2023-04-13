@@ -2,35 +2,38 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask import send_from_directory
+from langchain import OpenAI, SQLDatabase, SQLDatabaseChain
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
 db = SQLAlchemy(app)
+openai_api_key = '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'
 
-class Device(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.String, nullable=False, unique=True)
-    data_points = db.relationship('SensorData', backref='device', lazy=True)
 
-    def __repr__(self):
-        return f'<Device {self.device_id}>'
+aidb = SQLDatabase.from_uri(
+    "sqlite:////home/william/Git/ESP32-WiFi-Bluetooth-Android/python/instance/sensor_data.db",
+    sample_rows_in_table_info=10  # Change this value to the number of rows you want
+)
+
+questionllm = OpenAI(temperature=.7, openai_api_key=openai_api_key)
+answerllm = OpenAI(temperature=0, openai_api_key=openai_api_key)
 
 class SensorData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=False)
+    device_id = db.Column(db.String, nullable=False)  # Change this line
     key = db.Column(db.String, nullable=False)
     value = db.Column(db.String, nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    json_id = db.Column(db.Integer, nullable=False)  # Add this line
+    json_id = db.Column(db.Integer, nullable=False)
 
     def serialize(self):
         return {
             'id': self.id,
-            'device_id': self.device.device_id,
+            'device_id': self.device_id,
             'key': self.key,
             'value': self.value,
             'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-            'json_id': self.json_id,  # Add this line
+            'json_id': self.json_id,
         }
 
     def __repr__(self):
@@ -51,13 +54,6 @@ def sensor_data():
 
         device_id = data['device_id']
 
-        # Find or create a device with the given device_id
-        device = Device.query.filter_by(device_id=device_id).first()
-        if device is None:
-            device = Device(device_id=device_id)
-            db.session.add(device)
-            db.session.commit()
-
         try:
             timestamp = datetime.fromisoformat(data['timestamp'])
         except (KeyError, ValueError) as e:
@@ -73,11 +69,11 @@ def sensor_data():
                 key = item['key']
                 value = item['value']
                 new_sensor_data = SensorData(
-                    device_id=device.id,
+                    device_id=device_id,  # Change this line
                     key=key,
                     value=str(value),
                     timestamp=timestamp,
-                    json_id=highest_json_id + 1  # Increment the json_id
+                    json_id=highest_json_id + 1
                 )
                 db.session.add(new_sensor_data)
 
@@ -91,11 +87,23 @@ def sensor_data():
         all_sensor_data = SensorData.query.order_by(SensorData.timestamp.desc()).all()
         return jsonify([data.serialize() for data in all_sensor_data])
 
+@app.route('/api/response')
+def get_response():
+    table_info = aidb.get_table_info()
+
+    generated_question = questionllm.generate(["What are some hidden real world inefficiencies we can find from querying the data in this database? \n\n" + table_info])
+
+    db_chain = SQLDatabaseChain(llm=answerllm, database=aidb, verbose=True)
+    response = db_chain.run(generated_question.generations[0])
+
+    return jsonify({"response": response})
+
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-
 if __name__ == '__main__':
     setup_database()
     app.run(host='0.0.0.0', port=80, debug=True)
+

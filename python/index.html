@@ -3,80 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sensor Data Dashboard</title>
+  <title>AI Response</title>
   <style>
     body {
       font-family: Arial, sans-serif;
+      background-color: #808080;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: left;
-    }
-    th {
-      background-color: #f2f2f2;
+    .response {
+      font-size: 2em;
+      color: white;
+      text-align: center;
+      max-width: 80%;
+      line-height: 1.5;
     }
   </style>
-  <link href="https://unpkg.com/tabulator-tables@5.1.0/dist/css/tabulator.min.css" rel="stylesheet">
-  <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.1.0/dist/js/tabulator.min.js"></script>
 </head>
 <body>
-  <h1>Sensor Data Dashboard</h1>
-  <div id="sensor-data-table"></div>
+  <div class="response" id="response"></div>
 
-<script>
-const API_URL = '/api/sensor_data';
-
-async function fetchSensorData() {
-  const response = await fetch(API_URL);
-  const data = await response.json();
-
-  const groupedData = {};
-
-  data.forEach((sensor) => {
-    const jsonId = sensor.json_id;
-    const deviceId = sensor.device_id;
-    const groupingKey = `${jsonId}_${deviceId}`;
-
-    if (!groupedData[groupingKey]) {
-      groupedData[groupingKey] = { ID: sensor.id, device_id: sensor.device_id, timestamp: sensor.timestamp, json_id: jsonId };
+  <script>
+    async function fetchResponse() {
+      try {
+        const response = await fetch('/api/response');
+        const data = await response.json();
+        document.getElementById('response').innerText = data.response;
+      } catch (error) {
+        console.error('Error fetching response:', error);
+      }
     }
-    groupedData[groupingKey][sensor.key] = sensor.value;
-  });
 
-  return Object.values(groupedData);
-}
-
-async function initializeTable() {
-  const data = await fetchSensorData();
-
-  const uniqueKeys = Array.from(
-    new Set(data.flatMap((entry) => Object.keys(entry)))
-  ).sort();
-
-  const columns = [
-    { title: "ID", field: "ID", sorter: "number" },
-    { title: "JSON ID", field: "json_id", sorter: "number" },
-    { title: "Device ID", field: "device_id", sorter: "string" },
-    { title: "Timestamp", field: "timestamp", sorter: "string" },
-    ...uniqueKeys
-      .filter((key) => !["ID", "device_id", "timestamp", "json_id"].includes(key))
-      .map((key) => ({ title: key, field: key, sorter: "number" })),
-  ];
-
-  new Tabulator("#sensor-data-table", {
-    data: data,
-    columns: columns,
-    layout: "fitColumns",
-  });
-}
-
-initializeTable();
-
-</script>
+    fetchResponse();
+  </script>
 </body>
 </html>
+
