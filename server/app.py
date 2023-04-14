@@ -21,11 +21,13 @@ answerllm = OpenAI(temperature=0, openai_api_key=openai_api_key)
 
 class SensorData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.String, nullable=False)
+    device_id = db.Column(db.String, db.ForeignKey('device.device_id'), nullable=False)
     key = db.Column(db.String, nullable=False)
     value = db.Column(db.String, nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     json_id = db.Column(db.Integer, nullable=False)
+
+    device = db.relationship('Device', backref=db.backref('sensor_data', lazy=True))
 
     def serialize(self):
         return {
