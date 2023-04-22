@@ -8,7 +8,7 @@ import uuid
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
 db = SQLAlchemy(app)
-openai_api_key = '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'
+openai_api_key = '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'
 device_name_to_id = {}
 
 aidb = SQLDatabase.from_uri(
