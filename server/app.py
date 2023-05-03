@@ -8,7 +8,7 @@ import uuid
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
 db = SQLAlchemy(app)
-openai_api_key = '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'
+openai_api_key = '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'
 device_name_to_id = {}
 
 aidb = SQLDatabase.from_uri(
@@ -179,7 +179,7 @@ def metadata():
 def get_response():
     table_info = aidb.get_table_info()
 
-    generated_question = questionllm.generate(["What are some hidden real world inefficiencies we can find from querying the data in this database? \n\n" + table_info])
+    generated_question = questionllm.generate(["what infrences can you make about the data in this database? \n\n" + table_info])
 
     db_chain = SQLDatabaseChain(llm=answerllm, database=aidb, verbose=True)
     response = db_chain.run(generated_question.generations[0])

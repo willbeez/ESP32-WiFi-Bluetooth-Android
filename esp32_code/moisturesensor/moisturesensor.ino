@@ -1,6 +1,9 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <BluetoothSerial.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 #include <ArduinoJson.h>
 #include <time.h>
 #include <ctime>
@@ -9,39 +12,45 @@
 #include <NTPClient.h>
 #include <Preferences.h>
 
+#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define MOISTURE_PIN A0
+#define AIR_VALUE 4095
+#define WATER_VALUE 1741
+
 Preferences preferences;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
-BluetoothSerial SerialBT;
 String ssid = "";
 String password = "";
 
-const int MOISTURE_SENSOR_PIN = 34;
-
-// Replace with your desired server URL
 const char *serverUrl = "http://192.168.1.100/api/sensor_data";
 const char *serverUrlMetadata = "http://192.168.1.100/api/metadata";
 
 String device_name_prefix = "ESP32_";
 String device_name;
 
-typedef struct struct_peerInfo {
-  uint8_t mac[6];
-  int deviceNumber;
-} peerInfo_t;
+bool waitingForBLEConnection = true;
+bool isConnectedToWiFi = false;
 
-int deviceNumber;
-
-void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int len) {
-  int receivedDeviceNumber = *(int *)data;
-  if (receivedDeviceNumber >= deviceNumber) {
-    deviceNumber = receivedDeviceNumber + 1;
+void setDefaultCredentials() {
+  if (ssid == "" && password == "") {
+    ssid = "";
+    password = "";
+    preferences.putString("ssid", ssid);
+    preferences.putString("password", password);
   }
 }
 
-// Rest of the code (parseJsonData, getIsoTimeString, connectToWiFi, sendDataToServer)
-bool parseJsonData(String &json, String &ssid, String &password) {
+void printStoredCredentials() {
+  Serial.print("Stored credentials - SSID: ");
+  Serial.println(ssid);
+  Serial.print("Stored credentials - Password: ");
+  Serial.println(password);
+}
+
+bool parseJsonData(const char *json, String &ssid, String &password) {
   StaticJsonDocument<256> doc;
   DeserializationError error = deserializeJson(doc, json);
 
@@ -57,6 +66,14 @@ bool parseJsonData(String &json, String &ssid, String &password) {
   return true;
 }
 
+String getDeviceName() {
+  uint8_t baseMac[6];
+  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+  char baseMacChr[18] = {0};
+  sprintf(baseMacChr, "ESP32_%02X%02X%02X", baseMac[3], baseMac[4], baseMac[5]);
+  return String(baseMacChr);
+}
+
 String getIsoTimeString() {
   timeClient.update();
   unsigned long epochTime = timeClient.getEpochTime();
@@ -64,15 +81,52 @@ String getIsoTimeString() {
   struct tm timeinfo;
   char iso_time[21];
 
-  gmtime_r(&now, &timeinfo); // Use gmtime_r for UTC time
+  gmtime_r(&now, &timeinfo);
   strftime(iso_time, sizeof(iso_time), "%Y-%m-%dT%H:%M:%S", &timeinfo);
 
   return String(iso_time);
 }
 
-void connectToWiFi(const char *ssid, const char *password) {
+void sendDataToServer(int moisturePercentage) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(serverUrl);
+
+    String timestamp = getIsoTimeString();
+
+    String payload = "{";
+    payload += "\"device_name\":\"" + String(device_name) + "\",";
+    payload += "\"timestamp\":\"" + timestamp + "\",";
+    payload += "\"data\":[";  
+    payload += "{\"key\":\"moisturePercentage\",\"value\":" + String(moisturePercentage) + "}";
+    payload += "]";  
+    payload += "}";
+
+    Serial.print("Payload: ");
+    Serial.println(payload);
+
+        http.addHeader("Content-Type", "application/json");
+    int httpResponseCode = http.POST(payload);
+
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.print("HTTP Response code: ");
+      Serial.println(httpResponseCode);
+      Serial.print("Response: ");
+      Serial.println(response);
+    } else {
+      Serial.print("Error sending data. HTTP error code: ");
+      Serial.println(httpResponseCode);
+    }
+    http.end();
+  } else {
+    Serial.println("Error: Not connected to Wi-Fi");
+  }
+}
+
+bool connectToWiFi(const char *ssid, const char *password) {
   unsigned long startTime;
-  unsigned long timeout = 3000; // 3 seconds timeout for the connection attempt
+  unsigned long timeout = 6000;
   int maxRetries = 2;
   int retryCount = 0;
   bool connected = false;
@@ -86,7 +140,6 @@ void connectToWiFi(const char *ssid, const char *password) {
       delay(500);
       Serial.print(".");
 
-      // Check for timeout
       if (millis() - startTime > timeout) {
         Serial.println("");
         Serial.print("Connection attempt timed out. Retry ");
@@ -113,6 +166,7 @@ void connectToWiFi(const char *ssid, const char *password) {
     timeClient.update();
     preferences.putString("ssid", ssid);
     preferences.putString("password", password);
+    return true;
   } else {
     Serial.print("Failed to connect after ");
     Serial.print(maxRetries);
@@ -120,115 +174,97 @@ void connectToWiFi(const char *ssid, const char *password) {
     WiFi.disconnect();
     preferences.putString("ssid", "");
     preferences.putString("password", "");
+    return false;
   }
 }
 
-void sendDataToServer(int moisturePercentage) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(serverUrl);
+class MyCallbacks: public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pCharacteristic) {
+    std::string receivedData = pCharacteristic->getValue();
+    if (receivedData.length() > 0) {
+      Serial.print("Received data: ");
+      Serial.println(receivedData.c_str());
 
-    // Get the current timestamp
-    String timestamp = getIsoTimeString();
+      String receivedSsid, receivedPassword;
+      if (parseJsonData(receivedData.c_str(), receivedSsid, receivedPassword)) {
+        Serial.println("Parsed data:");
+        Serial.print("  SSID: ");
+        Serial.println(receivedSsid);
+        Serial.print("  Password: ");
+        Serial.println(receivedPassword);
 
-    // Prepare the JSON payload
-    String payload = "{";
-    payload += "\"device_name\":\"" + String(device_name) + "\",";  // Include the device_name in the payload
-    payload += "\"timestamp\":\"" + timestamp + "\",";
-    payload += "\"data\":[";  // Start data array
-    payload += "{\"key\":\"moisturePercentage\",\"value\":" + String(moisturePercentage) + "}"; // Add moisturePercentage object
-    payload += "]";  // End data array
-    payload += "}";
-
-    Serial.print("Payload: ");
-    Serial.println(payload);
-
-    http.addHeader("Content-Type", "application/json");
-    int httpResponseCode = http.POST(payload);
-
-    if (httpResponseCode > 0) {
-      String response = http.getString();
-      Serial.print("HTTP Response code: ");
-      Serial.println(httpResponseCode);
-      Serial.print("Response: ");
-      Serial.println(response);
-    } else {
-      Serial.print("Error sending data. HTTP error code: ");
-      Serial.println(httpResponseCode);
+        if (WiFi.status() != WL_CONNECTED) {
+          bool connected = connectToWiFi(receivedSsid.c_str(), receivedPassword.c_str());
+          waitingForBLEConnection = !connected; // Update the flag based on the connection result
+          printStoredCredentials();
+        }
+      } else {
+        Serial.println("Error: Failed to parse JSON data");
+      }
     }
-    http.end();
-  } else {
-    Serial.println("Error: Not connected to Wi-Fi");
   }
-}
-
-String getDeviceName() {
-  uint8_t baseMac[6];
-  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-  char baseMacChr[18] = {0};
-  sprintf(baseMacChr, "ESP32_%02X%02X%02X", baseMac[3], baseMac[4], baseMac[5]);
-  return String(baseMacChr);
-}
+};
 
 void setup() {
   Serial.begin(115200);
   preferences.begin("wifi", false);
   device_name = getDeviceName();
+  Serial.println("DeviceName: " + device_name);
 
-  pinMode(MOISTURE_SENSOR_PIN, INPUT);
+  pinMode(MOISTURE_PIN, INPUT);
 
-  SerialBT.begin(device_name);
+  BLEDevice::init(device_name.c_str());
+  BLEServer *pServer = BLEDevice::createServer();
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+  BLECharacteristic *pCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID, 
+    BLECharacteristic::PROPERTY_READ | 
+    BLECharacteristic::PROPERTY_WRITE | 
+    BLECharacteristic::PROPERTY_NOTIFY | 
+    BLECharacteristic::PROPERTY_INDICATE
+  );
+  pCharacteristic->setCallbacks(new MyCallbacks());
+  pCharacteristic->addDescriptor(new BLE2902());
+  pService->start();
+  BLEAdvertising *pAdvertising = pServer->getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);
+  pAdvertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
+  Serial.println("BLE device started, waiting for connections...");
   Serial.println("Bluetooth device started, waiting for connections...");
+
+  ssid = preferences.getString("ssid", "");
+  password = preferences.getString("password", "");
+  setDefaultCredentials();
+  printStoredCredentials();
 }
 
 void loop() {
-  // Check for incoming JSON data via Bluetooth
-  if (SerialBT.available()) {
-    String receivedData = SerialBT.readStringUntil('\n');
-    receivedData.trim();
-
-    Serial.print("Received data: ");
-    Serial.println(receivedData);
-
-    String ssid, password;
-    if (parseJsonData(receivedData, ssid, password)) {
-      Serial.println("Parsed data:");
-      Serial.print("  SSID: ");
-      Serial.println(ssid);
-      Serial.print("  Password: ");
-      Serial.println(password);
-
-      // Connect to Wi-Fi using the received credentials
-      if (WiFi.status() != WL_CONNECTED) {
-        connectToWiFi(ssid.c_str(), password.c_str());
-      }
-    } else {
-      Serial.println("Error: Failed to parse JSON data");
-    }
-  }
-
   if (WiFi.status() == WL_CONNECTED) {
-    // Read actual sensor readings
-    int moistureValue = analogRead(MOISTURE_SENSOR_PIN);
-    int moisturePercentage = map(moistureValue, 1400, 75, 0, 100);
+    isConnectedToWiFi = true;
+    int moistureValue = analogRead(MOISTURE_PIN);
+    int moisturePercentage = map(moistureValue, AIR_VALUE, WATER_VALUE, 0, 100);
 
     sendDataToServer(moisturePercentage);
 
     delay(10000); // Wait for 10 seconds before sending the next set of data
   } else {
-    ssid = preferences.getString("ssid", "");
-    password = preferences.getString("password", "");
+    if (!isConnectedToWiFi && waitingForBLEConnection) {
+      ssid = preferences.getString("ssid", "");
+      password = preferences.getString("password", "");
 
-    Serial.print("Stored credentials - SSID: ");
-    Serial.println(ssid);
-    Serial.print("Stored credentials - Password: ");
-    Serial.println(password);
+      printStoredCredentials(); // Print stored credentials before attempting to connect
 
-    if (ssid != "" && password != "") {
-      connectToWiFi(ssid.c_str(), password.c_str());
-    } else {
-      Serial.println("No stored Wi-Fi credentials. Waiting for Bluetooth connection...");
-      delay(500); // Wait for half a second before checking for incoming data again
+      if (ssid != "" && password != "") {
+        bool connected = connectToWiFi(ssid.c_str(), password.c_str());
+        waitingForBLEConnection = !connected; // Update the flag based on the connection result
+      } else {
+        Serial.println("No stored Wi-Fi credentials. Waiting for BLE connection...");
+        delay(500); // Wait for half a second before checking for incoming data again
+      }
     }
   }
 }
+
