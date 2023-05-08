@@ -1,72 +1,106 @@
-# ESP32 Wi-Fi and Bluetooth Android App
+# Sensor Data Dashboard
 
-This project is a complete solution for configuring an ESP32-based device with a Wi-Fi network and a description using an Android app. The solution consists of an ESP32 firmware, an Android app with two activities, a Python Flask web application, and an HTML front-end.
+This repository contains an ESP32-based device and a Flask server for collecting data agnostically from sensors, such as temperature and humidity data from a DHT11 sensor. The system receives Wi-Fi credentials via Bluetooth and sends the data to a server via HTTP. The server stores the data in an SQLite database and provides a simple web-based dashboard for visualization. The design allows for the easy addition and integration of other types of sensor data.
 
-## Table of Contents
-1. [Requirements](#requirements)
-2. [ESP32 Firmware](#esp32-firmware)
-3. [Android App](#android-app)
-    1. [MainActivity](#mainactivity)
-    2. [ConfigurationActivity](#configurationactivity)
-4. [Flask Web Application](#flask-web-application)
-5. [HTML Front-end](#html-front-end)
-6. [Setup and Installation](#setup-and-installation)
-7. [Usage](#usage)
-8. [Screenshots](#screenshots)
+## Contents
 
-## Requirements
+1. [ESP32 Device Code](#esp32-device-code)
+2. [Flask Server Code](#flask-server-code)
+3. [Dashboard](#dashboard)
+4. [Installation](#installation)
+5. [Running the Project](#running-the-project)
 
-- ESP32 development board
-- Android Studio
-- Arduino IDE with ESP32 support
-- Python with Flask
+## ESP32 Device Code
+![image](https://user-images.githubusercontent.com/3200244/230788400-8ed501d1-22ee-4a8f-b222-f12297f3404a.png)
 
-## ESP32 Firmware
 
-The firmware for the ESP32 device is written in Arduino C++ using the Arduino IDE. The code can be found in `moisturesensor.ino`. The firmware connects the device to a Wi-Fi network using the provided SSID and password, sets up a Bluetooth Low Energy (BLE) server with a custom service, and listens for incoming data to set the description.
+The `single-node.ino` file contains the Arduino code for the ESP32 microcontroller. This code reads temperature and humidity data from a DHT11 sensor, receives Wi-Fi credentials via Bluetooth, and sends the data to the Flask server via HTTP.
 
-## Android App
+### Libraries
 
-The Android app is written in Kotlin and consists of two activities, `MainActivity` and `ConfigurationActivity`.
+The following libraries are required to compile the code:
 
-### MainActivity
+- WiFi.h
+- HTTPClient.h
+- BluetoothSerial.h
+- ArduinoJson.h
+- time.h
+- ctime
+- iomanip
+- DHT.h
 
-`MainActivity` is responsible for scanning and displaying available BLE devices. The user can select a device, and the app will proceed to the `ConfigurationActivity`. The code for this activity can be found in `MainActivity.kt`.
+### Hardware
 
-### ConfigurationActivity
+The code assumes that a DHT11 sensor is connected to the D4 pin of the ESP32.
 
-`ConfigurationActivity` connects to the selected ESP32 device via BLE and sends the Wi-Fi SSID, password, and description. The code for this activity can be found in `ConfigurationActivity.kt`.
+## Flask Server Code
+![image](https://user-images.githubusercontent.com/3200244/230788442-429ffe64-38c8-48e1-a749-e5069353735f.png)
 
-## Flask Web Application
 
-The Flask web application is a simple Python server that receives the description from the ESP32 device and serves an HTML front-end to display the received information. The code for the Flask server can be found in `app.py`.
+The `app.py` file contains the Flask server code that receives incoming sensor data via an API, stores it in an SQLite database, and serves a simple dashboard for viewing the data.
 
-## HTML Front-end
+### Dependencies
 
-The HTML front-end displays the received description from the ESP32 device. The code for the front-end can be found in `index.html`.
+You'll need to install the following Python packages:
 
-## Setup and Installation
+- Flask
+- Flask-SQLAlchemy
 
-1. Install the required software: Android Studio, Arduino IDE with ESP32 support, and Python with Flask.
-2. Load the `moisturesensor.ino` file in the Arduino IDE and upload it to the ESP32 device.
-3. Open the Android app project in Android Studio and build the APK.
-4. Install the APK on your Android device.
-5. Run the Flask server using `python app.py`.
+## Dashboard
+![image](https://user-images.githubusercontent.com/3200244/230788041-8fd81d92-7451-424e-8cb3-62ed89a7b858.png)
 
-## Usage
+The `index.html` file is a simple HTML dashboard for viewing the sensor data. It fetches the data from the Flask server and displays it in a table.
 
-1. Power on the ESP32 device.
-2. Open the Android app and start scanning for BLE devices.
-3. Select the ESP32 device from the list.
-4. Enter the Wi-Fi SSID, password, and a description in the `ConfigurationActivity`.
-5. Press the "Submit" button to send the information to the ESP32 device.
-6. Open a web browser and navigate to the Flask server's URL to view the description.
+### Dependencies
 
-## Screenshots
+The dashboard uses the Tabulator library for rendering the table. The library is loaded from a CDN.
 
-- `MainActivity`:
-    - (Insert screenshot of the MainActivity here)
-- `ConfigurationActivity`:
-    - (Insert screenshot of the ConfigurationActivity here)
-- Flask Web Application / HTML Front-end:
-    - (Insert screenshot of the Flask web app / HTML front-end here)
+## Installation
+
+1. Install [Python 3](https://www.python.org/downloads/) and [pip](https://pip.pypa.io/en/stable/installing/) if you haven't already.
+2. Install the required Python packages by running:
+  pip install Flask Flask-SQLAlchemy
+
+3. Install [Arduino IDE](https://www.arduino.cc/en/software) and [configure it for ESP32](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/).
+
+4. Install the required Arduino libraries using the Arduino IDE's Library Manager:
+
+- [DHT Sensor Library](https://github.com/adafruit/DHT-sensor-library)
+- [ArduinoJson](https://arduinojson.org/)
+
+## Running the Project
+
+1. Upload the `single-node.ino` sketch to your ESP32 using the Arduino IDE.
+
+2. Run the Flask server by executing the following command in the terminal or command prompt:
+  python3 server.py
+
+The server will start on `http://0.0.0.0:5000/`.
+
+3. Open a web browser and navigate to `http://localhost:5000/` to view the dashboard.
+
+4. Connect to the ESP32 via Bluetooth using a Bluetooth serial terminal app on your smartphone or computer. Send the Wi-Fi credentials as a JSON string in the following format:
+  { "ssid": "your_wifi_ssid", "password": "your_wifi_password" }
+
+The ESP32 will connect to the Wi-Fi network and start sending sensor data to the Flask server every 10 seconds.
+
+5. The dashboard will update with the new sensor data. Refresh the page to see the latest data.
+
+Note: Make sure to replace the `serverUrl` variable in the `esp32_device.ino
+
+## Project Structure
+
+- `single-node.ino`: ESP32 Arduino code for reading sensor data, connecting to Wi-Fi, and sending data to the server.
+- `app.py`: Flask server code for handling incoming data, storing it in an SQLite database, and serving the dashboard.
+- `index.html`: HTML file for the dashboard, displaying sensor data in a table format.
+- `sensor_data.db`: SQLite database file that stores the sensor data (created automatically when the Flask server runs).
+
+## Troubleshooting
+
+1. If the ESP32 cannot connect to the Wi-Fi network, ensure that the provided credentials are correct and that the ESP32 is within range of the Wi-Fi network.
+2. If the ESP32 cannot send data to the Flask server, ensure that the server is running, and the IP address and port in the `esp32_device.ino` file are correct.
+3. If the dashboard is not displaying any data, ensure that the Flask server is running and that the ESP32 is sending data correctly.
+
+## License
+
+This project is provided under the GNU General Public License v3.0 (GPL-3.0). See the [LICENSE](LICENSE) file for more information.
